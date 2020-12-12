@@ -21,8 +21,8 @@ const port = new SerialPort(portName, {
 })
 const parser = new Readline();
 port.pipe(parser);
-port.on("open", async (data) => {
-    console.log('data: ', data);
+port.on("open", async () => {
+    console.log('Port opened');
     // Авторизация на сервере
     // (await axios.post('https://site.com/', {
     //     foo: 'bar',
@@ -50,7 +50,8 @@ parser.on('data', line => {
     //     secret: "spbgos5QpJkp4ghuDtKH7g1FF8M7jsW46qieRR3ZLsjRp3h2LOWbl46Mn99z4DZI",
     //     name: "asd"
     // }))
-    console.log(`> ${line}`)
+    line.split("");
+    console.log('line.split(""): ', line.split(""));
 });
 port.on("close", (data) => {
     console.log("Port closed");
