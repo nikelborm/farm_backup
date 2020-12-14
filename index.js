@@ -3,6 +3,12 @@
 // https://www.npmjs.com/package/raspi
 const SerialPort = require('serialport');
 const Readline = require('@serialport/parser-readline');
+// const ByteLength = require('@serialport/parser-byte-length')
+// const parser = port.pipe(new ByteLength({length: 8}))
+// const Delimiter = require('@serialport/parser-delimiter')
+// const parser = port.pipe(new Delimiter({ delimiter: '\n' }))
+// const InterByteTimeout = require('@serialport/parser-inter-byte-timeout')
+// const parser = port.pipe(new InterByteTimeout({interval: 30}))
 const { exec } = require("child_process");
 const WebSocket = require("ws");
 const portName = '/dev/ttyUSB0';
@@ -12,47 +18,84 @@ const portName = '/dev/ttyUSB0';
 //     dataBits: 8,
 //     parity: 'none',
 //     stopBits: 1,
-////     flowControl: false
+//     xoff:true // flowControl: false
 // }
+function setWateringState( isActive ) {
+}
+function setLightingState( isActive ) {
+}
+function setOxidationState( isActive ) {
+}
+function setGroundHeatingState( isActive ) {
+}
+function setWaterHeatingState( isActive ) {
+}
+function setAirHeatingState( isActive ) {
+}
+function getGroundTemperature() {
+}
+function getWaterTemperature() {
+}
+function getAirTemperature() {
+}
+function getGroundHumidity() {
+}
+function getAirHumidity() {
+}
+function getGroundOxidation() {
+}
+function getWaterOxidation() {
+}
+function getGroundSalt() {
+}
+function getWaterSalt() {
+}
 
-// const wssurl = 'wss://192.168.0.14:3000/';
+const wssurl = 'ws://127.0.0.1:3000/';
+const connection = new WebSocket( wssurl );
 const port = new SerialPort(portName, {
-    baudRate: 115200
+    baudRate: 115200,
 })
-const parser = new Readline();
+function afterAuthHandler(params) {
+    parser.on('data', line => {
+        const { sensor, value } = JSON.parse(line);
+        connection.send(JSON.stringify({
+            class: "records",
+            sensor,
+            value
+        }))
+    });
+}
+const parser = new Readline({ delimiter: '\r\n' });
 port.pipe(parser);
 port.on("open", async () => {
     console.log('Port opened');
     // Авторизация на сервере
-    // (await axios.post('https://site.com/', {
-    //     foo: 'bar',
-    //     headers: 
-    // }))
     // Подключение к вебсокету
-    // const connection = new WebSocket(wssurl);
-    // connection.onopen = (asd) => {
-    //     // connection.
-    //     connection.onmessage = e => {
-    //         console.log(e.data)
-    //     }
-    //     connection.send(JSON.stringify({
-	// 		secret: "asdasdasd",
-	// 		name: "asd"
-	// 	}))
+    connection.onopen = (asd) => {
+        // connection.
+        connection.onmessage = e => {
+            console.log(e.data)
+        }
+        connection.send(JSON.stringify({
+            class:"loginAsFarm",
+			secret: "asdasdasd",
+			name: "asd"
+        }))
+        function waitForAuthorization(input) {
+            const data = JSON.parse(input.toString());
+            if( data.class === "loginAsFarm" && !data.report.isError) {
+                connection.addListener("message", afterAuthHandler);
+                connection.removeListener("message", waitForAuthorization);
+            }
+        }
+        connection.addListener("message", waitForAuthorization);
+    }
+    connection.onerror = error => {
+        console.log("WebSocket error:", error)
+    }
+});
 
-    // }
-    // connection.onerror = error => {
-    //     console.log(`WebSocket error: ${error}`)
-    // }
-});
-parser.on('data', line => {
-    // connection.send(JSON.stringify({
-    //     secret: "spbgos5QpJkp4ghuDtKH7g1FF8M7jsW46qieRR3ZLsjRp3h2LOWbl46Mn99z4DZI",
-    //     name: "asd"
-    // }))
-    line.split("");
-    console.log('line.split(""): ', line.split(""));
-});
 port.on("close", (data) => {
     console.log("Port closed");
     console.log('data: ', data);
@@ -61,7 +104,7 @@ port.on("error", (data) => {
     console.log('Error on port');
     console.log('data: ', data);
 });
-port.write('Hello\n');
+port.write('Hello \0');
 
 // const timerrrr = setInterval( () => {
 // 	exec( "cat /sys/class/thermal/thermal_zone0/temp", ( error, stdout, stderr ) => {
@@ -72,3 +115,26 @@ port.write('Hello\n');
 // 		console.log( parseInt( stdout.split( "\n" )[ 0 ], 10 ) / 1000 );
 // 	} );
 // }, 500 );
+
+
+// g - get
+
+// gt - groundTemperature
+// wt - waterTemperature
+// at - airTemperature
+// gh - groundHumidity
+// ah - airHumidity
+// go - groundOxidation
+// wo - waterOxidation
+// gs - groundSalt
+// ws - waterSalt
+
+// e - enable
+// d - disable
+
+// ww - watering
+// ll - lighting
+// oo - oxidation
+// gh - groundHeating
+// wh - waterHeating
+// ah - airHeating
