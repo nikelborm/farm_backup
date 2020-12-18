@@ -1,4 +1,4 @@
-function createEmptyProcessStates(processes) {
+function createEmptyProcessesStates(processes) {
     let processStates = {};
     for (const process of processes)
     {
@@ -8,4 +8,4 @@ function createEmptyProcessStates(processes) {
     }
     return processStates;
 }
-exports.createEmptyProcessStates = createEmptyProcessStates;
+exports.createEmptyProcessesStates = createEmptyProcessesStates;
