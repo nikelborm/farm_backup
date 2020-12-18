@@ -30,12 +30,13 @@ const Readline = require("@serialport/parser-readline");
 const WebSocket = require("ws");
 const { prepare } = require("./tools/prepare");
 const { shouldProcessBeActive } = require("./tools/shouldProcessBeActive");
-const { createEmptyProcessStates } = require("./tools/createEmptyProcessStates");
+const { createEmptyProcessesStates } = require("./tools/createEmptyProcessesStates");
 let config = {
     processes: [
         {
             short: "w",
             long: "watering",
+            title: "Поливной насос",
             isAvailable: true,
             timings: [
                 [ [ 2,  9  ], [ 2,  24 ] ], // msfromBeginingOfDay, msfromEndOfDay
@@ -53,6 +54,7 @@ let config = {
         {
             short: "l",
             long: "lighting",
+            title: "Освещение",
             isAvailable: true,
             timings: [
                 [ [ 7 ], [ 23 ] ],
@@ -61,6 +63,7 @@ let config = {
         {
             short: "o",
             long: "oxidation",
+            title: "Аэрация раствора",
             isAvailable: true,
             timings: [
                 [ [ 1,  54 ], [ 2,  24 ] ],
@@ -78,18 +81,21 @@ let config = {
         {
             short: "gh",
             long: "groundHeating",
+            title: "Подогрев почвы",
             isAvailable: false,
             timings: []
         },
         {
             short: "wh",
             long: "waterHeating",
+            title: "Подогрев раствора",
             isAvailable: false,
             timings: []
         },
         {
             short: "ah",
             long: "airHeating",
+            title: "Подогрев воздуха",
             isAvailable: false,
             timings: []
         },
@@ -98,18 +104,21 @@ let config = {
         {
             short: "gt",
             long: "groundTemperature",
+            title: "Температура почвы",
             isConnected: false,
             criticalBorders: {}
         },
         {
             short: "wt",
             long: "waterTemperature",
+            title: "Температура воды",
             isConnected: false,
             criticalBorders: {}
         },
         {
             short: "at",
             long: "airTemperature",
+            title: "Температура вохдуха",
             isConnected: true,
             criticalBorders: {
                 lower: 10,
@@ -119,12 +128,14 @@ let config = {
         {
             short: "gh",
             long: "groundHumidity",
+            title: "Влажность почвы",
             isConnected: false,
             criticalBorders: {}
         },
         {
             short: "ah",
             long: "airHumidity",
+            title: "Влажность воздуха",
             isConnected: true,
             criticalBorders: {
                 lower: 12,
@@ -134,30 +145,34 @@ let config = {
         {
             short: "go",
             long: "groundOxidation",
+            title: "Кислотность почвы",
             isConnected: false,
             criticalBorders: {}
         },
         {
             short: "wo",
             long: "waterOxidation",
+            title: "Кислотность воды",
             isConnected: false,
             criticalBorders: {}
         },
         {
             short: "gs",
             long: "groundSalt",
+            title: "Солёность почвы",
             isConnected: false,
             criticalBorders: {}
         },
         {
             short: "ws",
             long: "waterSalt",
+            title: "Солёность воды",
             isConnected: false,
             criticalBorders: {}
         }
     ]
 };
-let processStates = createEmptyProcessStates( config.processes );
+let processesStates = createEmptyProcessesStates( config.processes );
 
 const portName = "/dev/ttyUSB0";
 const wssurl = "ws://127.0.0.1:3000/";
@@ -199,7 +214,7 @@ function beforeAuthHandler( input ) {
     if( data.class !== "loginAsFarm" || data.report.isError ) return;
     sendToServer( {
         class: "activitySyncPackage",
-        package: processStates
+        package: processesStates
     } );
     sendToServer( {
         class: "configPackage",
@@ -229,7 +244,7 @@ function afterAuthHandler( input ) {
                 case "activitySyncPackage":
                     sendToServer( {
                         class: "activitySyncPackage",
-                        package: processStates
+                        package: processesStates
                     } );
                     break;
                 case "configPackage":
