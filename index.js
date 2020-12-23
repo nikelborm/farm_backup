@@ -196,6 +196,7 @@ function sendToWSServer( data ) {
     connection.send( JSON.stringify( data ) );
 }
 function serialLineHandler( line ) {
+    console.log('line: ', line);
     const { sensor, value } = JSON.parse( line );
     // Пока ферма присылает нам только показания с датчиков
     // Но возможно потом ещё что-то добавим
