@@ -118,7 +118,7 @@ let config = {
         {
             short: "at",
             long: "airTemperature",
-            title: "Температура вохдуха",
+            title: "Температура воздуха",
             isConnected: true,
             criticalBorders: {
                 lower: 10,
@@ -175,10 +175,10 @@ let config = {
 let processesStates = createEmptyProcessesStates( config.processes );
 
 const portName = "/dev/ttyUSB0";
-const wssurl = "ws://127.0.0.1:3000/";
+const WSSUrl = "wss://rapidfarm2team.herokuapp.com/";
 const secret = "asdasdasd";
 const name = "Silver Farm";
-const connection = new WebSocket( wssurl );
+const connection = new WebSocket( WSSUrl );
 const port = new SerialPort(portName, {
     baudRate: 115200,
 });
@@ -190,39 +190,39 @@ function invertProcessState( process ) {
     process.isActive = shouldProcessBeActive( process );
 }
 function requestSensorValue( sensor ) {
-    port.write( "g" + process.short + "\n" );
+    port.write( "g" + sensor.short + "\n" );
 }
-function sendToServer( data ) {
+function sendToWSServer( data ) {
     connection.send( JSON.stringify( data ) );
 }
-function afterAuthParserLineHandler( line ) {
+function serialLineHandler( line ) {
     const { sensor, value } = JSON.parse( line );
     // Пока ферма присылает нам только показания с датчиков
     // Но возможно потом ещё что-то добавим
     if( false /* Выходит за рамки? */ ) {
         // отправить criticalevent если выходит за рамки
     } else {
-        sendToServer( {
+        sendToWSServer( {
             class: "records",
             sensor,
             value
         } );
     }
 }
+parser.addListener( "data", serialLineHandler );
 function beforeAuthHandler( input ) {
     const data = prepare( input );
     if( data.class !== "loginAsFarm" || data.report.isError ) return;
-    sendToServer( {
+    sendToWSServer( {
         class: "activitySyncPackage",
         package: processesStates
     } );
-    sendToServer( {
+    sendToWSServer( {
         class: "configPackage",
         package: config
     } );
-    parser.addListener( "data", afterAuthParserLineHandler );
-    connection.addListener( "message", afterAuthHandler );
     connection.removeListener( "message", beforeAuthHandler );
+    connection.addListener( "message", afterAuthHandler );
 }
 function afterAuthHandler( input ) {
     const data = prepare( input );
@@ -233,22 +233,24 @@ function afterAuthHandler( input ) {
                     config.processes.find( process => (
                         process.long === data.process
                     ) ).timings = data.timings;
+                    // TODO: updateLocalFarmConfigFile();
                     break;
                 case "config":
                     config = data.config;
+                    // TODO: updateLocalFarmConfigFile();
                     break;
             }
             break;
         case "get":
             switch ( data.what ) {
                 case "activitySyncPackage":
-                    sendToServer( {
+                    sendToWSServer( {
                         class: "activitySyncPackage",
                         package: processesStates
                     } );
                     break;
                 case "configPackage":
-                    sendToServer( {
+                    sendToWSServer( {
                         class: "configPackage",
                         package: config
                     } );
@@ -258,8 +260,10 @@ function afterAuthHandler( input ) {
         case "execute":
             switch ( data.what ) {
                 case "shutDownFarm":
+                    // TODO: shutDownFarm();
                     break;
                 case "updateArduino":
+                    // TODO: updateArduino();
                     break;
             }
             break;
@@ -277,7 +281,7 @@ connection.addListener( "error", error => {
 port.addListener( "open", () => {
     console.log( "Port opened" );
     connection.addListener( "open", () => {
-        sendToServer( {
+        sendToWSServer( {
             class: "loginAsFarm",
 			secret,
 			name
@@ -294,13 +298,13 @@ port.addListener( "error", err => {
 setInterval( function() {
     for( const process of config.processes ) {
         if( !process.isAvailable ) continue;
-        if( shouldProcessBeActive( process ) === process.isActive ) continue;
+        const { isActive } = processesStates[ process.long ];
+        if( shouldProcessBeActive( process ) === isActive ) continue;
         invertProcessState( process );
-        // TODO: Послать EVENT на сервер
-        sendToServer( {
+        sendToWSServer( {
             class: "event",
 			process: process.long,
-            isActive: process.isActive
+            isActive
         } );
     }
 }, 5000 );
