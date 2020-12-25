@@ -9,11 +9,11 @@
 // const parser = port.pipe(new InterByteTimeout({interval: 30}))
 // defaults for Arduino serial communication
 // {
-    //     baudRate: 115200,
-    //     dataBits: 8,
-    //     parity: "none",
-    //     stopBits: 1,
-    //     xoff:true // flowControl: false
+        // baudRate: 115200,
+        // dataBits: 8,
+        // parity: "none",
+        // stopBits: 1,
+        // xoff:true // flowControl: false
     // }
     // const { exec } = require("child_process");
 
@@ -27,176 +27,65 @@
 
 const SerialPort = require("serialport");
 const Readline = require("@serialport/parser-readline");
+const Ready = require('@serialport/parser-ready');
 const WebSocket = require("ws");
 const { prepare } = require("./tools/prepare");
 const { shouldProcessBeActive } = require("./tools/shouldProcessBeActive");
-const { createEmptyProcessesStates } = require("./tools/createEmptyProcessesStates");
-let config = {
-    processes: [
-        {
-            short: "w",
-            long: "watering",
-            title: "Поливной насос",
-            isAvailable: true,
-            timings: [
-                [ [ 2,  9  ], [ 2,  24 ] ], // msfromBeginingOfDay, msfromEndOfDay
-                [ [ 4,  33 ], [ 4,  48 ] ], // возможно действительно даже лучше хранить просто в миллисекундах
-                [ [ 6,  57 ], [ 7,  12 ] ], // но для отладки так конечно удобнее
-                [ [ 9,  21 ], [ 9,  36 ] ],
-                [ [ 11, 45 ], [ 12, 0  ] ],
-                [ [ 14, 9  ], [ 14, 24 ] ],
-                [ [ 16, 33 ], [ 16, 48 ] ],
-                [ [ 18, 57 ], [ 19, 12 ] ],
-                [ [ 21, 21 ], [ 21, 36 ] ],
-                [ [ 23, 45 ], [ 24, 0  ] ],
-            ]
-        },
-        {
-            short: "l",
-            long: "lighting",
-            title: "Освещение",
-            isAvailable: true,
-            timings: [
-                [ [ 7 ], [ 23 ] ],
-            ]
-        },
-        {
-            short: "o",
-            long: "oxidation",
-            title: "Аэрация раствора",
-            isAvailable: true,
-            timings: [
-                [ [ 1,  54 ], [ 2,  24 ] ],
-                [ [ 4,  18 ], [ 4,  48 ] ],
-                [ [ 6,  42 ], [ 7,  12 ] ],
-                [ [ 9,  6  ], [ 9,  36 ] ],
-                [ [ 11, 30 ], [ 12, 0  ] ],
-                [ [ 13, 54 ], [ 14, 24 ] ],
-                [ [ 16, 18 ], [ 16, 48 ] ],
-                [ [ 18, 42 ], [ 19, 12 ] ],
-                [ [ 21, 6  ], [ 21, 36 ] ],
-                [ [ 23, 30 ], [ 24, 0  ] ],
-            ]
-        },
-        {
-            short: "gh",
-            long: "groundHeating",
-            title: "Подогрев почвы",
-            isAvailable: false,
-            timings: []
-        },
-        {
-            short: "wh",
-            long: "waterHeating",
-            title: "Подогрев раствора",
-            isAvailable: false,
-            timings: []
-        },
-        {
-            short: "ah",
-            long: "airHeating",
-            title: "Подогрев воздуха",
-            isAvailable: false,
-            timings: []
-        },
-    ],
-    sensors: [
-        {
-            short: "gt",
-            long: "groundTemperature",
-            title: "Температура почвы",
-            isConnected: false,
-            criticalBorders: {}
-        },
-        {
-            short: "wt",
-            long: "waterTemperature",
-            title: "Температура воды",
-            isConnected: false,
-            criticalBorders: {}
-        },
-        {
-            short: "at",
-            long: "airTemperature",
-            title: "Температура воздуха",
-            isConnected: true,
-            criticalBorders: {
-                lower: 10,
-                upper: 30,
-            }
-        },
-        {
-            short: "gh",
-            long: "groundHumidity",
-            title: "Влажность почвы",
-            isConnected: false,
-            criticalBorders: {}
-        },
-        {
-            short: "ah",
-            long: "airHumidity",
-            title: "Влажность воздуха",
-            isConnected: true,
-            criticalBorders: {
-                lower: 12,
-                upper: 1000,
-            }
-        },
-        {
-            short: "go",
-            long: "groundOxidation",
-            title: "Кислотность почвы",
-            isConnected: false,
-            criticalBorders: {}
-        },
-        {
-            short: "wo",
-            long: "waterOxidation",
-            title: "Кислотность воды",
-            isConnected: false,
-            criticalBorders: {}
-        },
-        {
-            short: "gs",
-            long: "groundSalt",
-            title: "Солёность почвы",
-            isConnected: false,
-            criticalBorders: {}
-        },
-        {
-            short: "ws",
-            long: "waterSalt",
-            title: "Солёность воды",
-            isConnected: false,
-            criticalBorders: {}
-        }
-    ]
-};
-let processesStates = createEmptyProcessesStates( config.processes );
+const { createProcessesStatesPackage } = require("./tools/createProcessesStatesPackage");
+// TODO: Вообще конфиг должен по факту с сервера прилетать, но это типа такая локальная базовая копия конфига
+let { config } = require("./config");
+let isPortSendsReady = false;
 
-const portName = "/dev/ttyUSB0";
-const WSSUrl = "wss://rapidfarm2team.herokuapp.com/";
-const secret = "asdasdasd";
-const name = "Silver Farm";
+const portName = process.env.SERIAL_PORT_ADRESS || "/dev/ttyUSB0";
+const WSSUrl = process.env.WSS_URL || "wss://rapidfarm2team.herokuapp.com/";
+const secret = process.env.FARM_SECRET || "?Hji6|48H*AOnID%YK1r@WDgRYTFIyzTkThx6UApx|8?*Lr6y}oeST}6%$8~g%ia";
+const name = process.env.NAME || "Silver Farm";
 const connection = new WebSocket( WSSUrl );
 const port = new SerialPort(portName, {
     baudRate: 115200,
+    // dataBits: 8,
+    // parity: "none",
+    // stopBits: 1,
+    // xoff:true // flowControl: false
 });
-const parser = new Readline({ delimiter: "\r\n" });
-port.pipe(parser);
+const readlineParser = new Readline({ delimiter: "\r\n" });
+const readyParser = new Ready({ delimiter: "ready" });
+const repeaterList = [];
+port.pipe( readyParser );
+function waitforReady() {
+    while ( !isPortSendsReady ) {
+        console.log('isPortSendsReady: ', isPortSendsReady);
+    }
+}
+readyParser.addListener( "ready", () => {
+    console.log("readyParser got: ready ");
+    port.pipe( readlineParser );
+    isPortSendsReady = true;
+    port.unpipe( readyParser );
+} );
+async function updateProcessState( process ) {
+    console.log("updateProcessState send to port: ", ( shouldProcessBeActive( process ) ? "e" : "d" ) + process.short );
+    port.write( ( shouldProcessBeActive( process ) ? "e" : "d" ) + process.short);
+    console.log("updateProcessState finished");
+}
+port.addListener( "open", () => {
+    console.log( "Port opened" );
+} );
 
-function invertProcessState( process ) {
-    port.write( ( process.isActive ? "d" : "e" ) + process.short + "\n" );
-    process.isActive = shouldProcessBeActive( process );
+async function requestSensorValue( sensor ) {
+    console.log("requestSensorValue: ", "g" + sensor.short );
+    port.write( "g" + sensor.short );
+    console.log("requestSensorValue finished");
 }
-function requestSensorValue( sensor ) {
-    port.write( "g" + sensor.short + "\n" );
-}
+
 function sendToWSServer( data ) {
-    connection.send( JSON.stringify( data ) );
+    console.log("sendToWSServer: ", data);
+    if ( connection.readyState === connection.OPEN ) connection.send( JSON.stringify( data ) );
+    else console.log('connection.readyState: ', connection.readyState);
+    console.log("sendToWSServer finished");
 }
 function serialLineHandler( line ) {
-    console.log('line: ', line);
+    console.log("serialLineHandler got: ", line);
     const { sensor, value } = JSON.parse( line );
     // Пока ферма присылает нам только показания с датчиков
     // Но возможно потом ещё что-то добавим
@@ -209,14 +98,52 @@ function serialLineHandler( line ) {
             value
         } );
     }
+    console.log("serialLineHandler finished");
 }
-parser.addListener( "data", serialLineHandler );
+
+function protectCallback( unsafeCallback ) {
+    return function() {
+        console.log( Date() );
+        if( port.isOpen ) unsafeCallback();
+        else console.log( "unsuccesful call: ", unsafeCallback.name, ", port closed" );
+        console.log();
+    };
+}
+
+async function portSafeRepeater( unsafeCB, milliseconds ) {
+    const safeCallback = protectCallback( unsafeCB );
+    waitforReady();
+    safeCallback();
+    repeaterList.push( setInterval( safeCallback, milliseconds ) );
+}
+
+function processStatesUpdater() {
+    for( const process of config.processes ) {
+        if( !process.isAvailable ) continue;
+        // if( shouldProcessBeActive( process ) === shouldProcessBeActive(process) ) continue;
+        updateProcessState( process );
+        sendToWSServer( {
+            class: "event",
+            process: process.long,
+            isActive: shouldProcessBeActive(process)
+        } );
+    }
+}
+
+function connectedSensorsPollster() {
+    for( const sensor of config.sensors ) {
+        if( !sensor.isConnected ) continue;
+        requestSensorValue( sensor );
+    }
+}
+
 function beforeAuthHandler( input ) {
+    console.log("beforeAuthHandler started");
     const data = prepare( input );
     if( data.class !== "loginAsFarm" || data.report.isError ) return;
     sendToWSServer( {
         class: "activitySyncPackage",
-        package: processesStates
+        package: createProcessesStatesPackage( config.processes )
     } );
     sendToWSServer( {
         class: "configPackage",
@@ -224,8 +151,11 @@ function beforeAuthHandler( input ) {
     } );
     connection.removeListener( "message", beforeAuthHandler );
     connection.addListener( "message", afterAuthHandler );
+    console.log("beforeAuthHandler finished");
 }
+
 function afterAuthHandler( input ) {
+    console.log("afterAuthHandler started");
     const data = prepare( input );
     switch ( data.class ) {
         case "set":
@@ -247,7 +177,7 @@ function afterAuthHandler( input ) {
                 case "activitySyncPackage":
                     sendToWSServer( {
                         class: "activitySyncPackage",
-                        package: processesStates
+                        package: createProcessesStatesPackage( config.processes )
                     } );
                     break;
                 case "configPackage":
@@ -271,48 +201,50 @@ function afterAuthHandler( input ) {
         default:
             break;
     }
+    console.log("afterAuthHandler finished");
 }
-connection.addListener( "message", beforeAuthHandler );
-connection.addListener( "message", input => {
-    console.log( "WebSocket gets: ", input );
-} );
-connection.addListener( "error", error => {
-    console.log( "WebSocket error: ", error );
-} );
-port.addListener( "open", () => {
-    console.log( "Port opened" );
-    connection.addListener( "open", () => {
-        sendToWSServer( {
-            class: "loginAsFarm",
-			secret,
-			name
-        } );
+
+connection.addListener( "open", () => {
+    console.log("Connection opened ");
+    sendToWSServer( {
+        class: "loginAsFarm",
+        secret,
+        name
     } );
+    portSafeRepeater( processStatesUpdater, 5000 );
+    // portSafeRepeater( connectedSensorsPollster, 5000/* 900000 */ );
 } );
+connection.addListener( "message", beforeAuthHandler );
+readlineParser.addListener( "data", serialLineHandler );
+connection.addListener( "error", error => {
+    console.log( "WebSocket error: " );
+    console.log(error);
+} );
+
+connection.addListener( "close", ( code, msg ) => {
+    console.log( "WebSocket closed: ", code, msg );
+    if ( msg === "shutdown farm" ) {
+        process.exit( 0 );
+    }
+} );
+
 port.addListener( "close", () => {
     console.log( "Port closed" );
 } );
-port.addListener( "error", err => {
-    console.log( "Error on port: ", err );
+
+port.addListener( "error", error => {
+    console.log( "Error on port: " );
+    console.log(error);
 } );
 
-setInterval( function() {
-    for( const process of config.processes ) {
-        if( !process.isAvailable ) continue;
-        const { isActive } = processesStates[ process.long ];
-        if( shouldProcessBeActive( process ) === isActive ) continue;
-        invertProcessState( process );
-        sendToWSServer( {
-            class: "event",
-			process: process.long,
-            isActive
-        } );
-    }
-}, 5000 );
+function shutdown() {
+    console.log("Exiting...\n\nClosing Serial port...");
+    port.close(err => {
+        console.log("Serial port closed.\n\nClosing Websocket connection...");
+        connection.close( 1000, "shutdown farm");
+        repeaterList.forEach( v => clearInterval( v ) );
+    });
+}
 
-setInterval( function() {
-    for( const sensor of config.sensors ) {
-        if( !sensor.isConnected ) continue;
-        requestSensorValue( sensor );
-    }
-}, 900000 );
+process.on("SIGTERM", shutdown);
+process.on("SIGINT", shutdown);
