@@ -1,5 +1,5 @@
 const { shouldProcessBeActive } = require("./shouldProcessBeActive");
-function createProcessesStatesPackage( processes ) {
+function createProcessesStatesPackage( processes, base ) {
     let processStates = {};
     for ( const process of processes ) {
         if ( !process.isAvailable ) continue;
