@@ -27,19 +27,43 @@
 
 const SerialPort = require("serialport");
 const Readline = require("@serialport/parser-readline");
-const Ready = require('@serialport/parser-ready');
+const Ready = require("@serialport/parser-ready");
 const WebSocket = require("ws");
+const minimist = require("minimist");
+
 const { prepare } = require("./tools/prepare");
 const { shouldProcessBeActive } = require("./tools/shouldProcessBeActive");
 const { createProcessesStatesPackage } = require("./tools/createProcessesStatesPackage");
+
 // TODO: Вообще конфиг должен по факту с сервера прилетать, но это типа такая локальная базовая копия конфига
 let { config } = require("./config");
 let isPortSendsReady = false;
+const processesStates = Object.fromEntries(
+    config.processes.map(
+        proc => [ proc.long, false ]
+    )
+);
 
-const portName = process.env.SERIAL_PORT_ADRESS || "/dev/ttyUSB0";
-const WSSUrl = process.env.WSS_URL || "wss://rapidfarm2team.herokuapp.com/";
-const secret = process.env.FARM_SECRET || "?Hji6|48H*AOnID%YK1r@WDgRYTFIyzTkThx6UApx|8?*Lr6y}oeST}6%$8~g%ia";
-const name = process.env.NAME || "Silver Farm";
+let procArgs = minimist( process.argv.slice(2), {
+    default: {
+        serialAdress: "/dev/ttyUSB0",
+        secret: "?Hji6|48H*AOnID%YK1r@WDgRYTFIyzTkThx6UApx|8?*Lr6y}oeST}6%$8~g%ia",
+        WSSUrl: "wss://rapidfarm2team.herokuapp.com/",
+        name: "Silver Farm"
+    },
+    alias: {
+        a: "serialAdress",
+        u: "WSSUrl",
+        s: "secret",
+        n: "name"
+    }
+});
+
+const portName = process.env.SERIAL_PORT_ADRESS || procArgs.serialAdress;
+const WSSUrl   = process.env.WSS_URL            || procArgs.WSSUrl;
+const secret   = process.env.FARM_SECRET        || procArgs.secret;
+const name     = process.env.NAME               || procArgs.name;
+
 const connection = new WebSocket( WSSUrl );
 const port = new SerialPort(portName, {
     baudRate: 115200,
@@ -52,25 +76,19 @@ const readlineParser = new Readline({ delimiter: "\r\n" });
 const readyParser = new Ready({ delimiter: "ready" });
 const repeaterList = [];
 port.pipe( readyParser );
+
 function waitforReady() {
-    while ( !isPortSendsReady ) {
-        console.log('isPortSendsReady: ', isPortSendsReady);
-    }
+    const deadLine = Date.now() + 20000;
+    while ( Date.now() < deadLine )
+        if ( isPortSendsReady ) return;
+    shutdown();
 }
-readyParser.addListener( "ready", () => {
-    console.log("readyParser got: ready ");
-    port.pipe( readlineParser );
-    isPortSendsReady = true;
-    port.unpipe( readyParser );
-} );
-async function updateProcessState( process ) {
-    console.log("updateProcessState send to port: ", ( shouldProcessBeActive( process ) ? "e" : "d" ) + process.short );
-    port.write( ( shouldProcessBeActive( process ) ? "e" : "d" ) + process.short);
-    console.log("updateProcessState finished");
+
+async function updateProcessStateOnFarm( process ) {
+    console.log("updateProcessStateOnFarm send to port:", ( processesStates[ process.long ] ? "e" : "d" ) + process.short );
+    port.write( ( processesStates[ process.long ] ? "e" : "d" ) + process.short);
+    console.log("updateProcessStateOnFarm finished");
 }
-port.addListener( "open", () => {
-    console.log( "Port opened" );
-} );
 
 async function requestSensorValue( sensor ) {
     console.log("requestSensorValue: ", "g" + sensor.short );
@@ -81,9 +99,10 @@ async function requestSensorValue( sensor ) {
 function sendToWSServer( data ) {
     console.log("sendToWSServer: ", data);
     if ( connection.readyState === connection.OPEN ) connection.send( JSON.stringify( data ) );
-    else console.log('connection.readyState: ', connection.readyState);
+    else console.log("connection.readyState: ", connection.readyState);
     console.log("sendToWSServer finished");
 }
+
 function serialLineHandler( line ) {
     console.log("serialLineHandler got: ", line);
     const { sensor, value } = JSON.parse( line );
@@ -103,9 +122,9 @@ function serialLineHandler( line ) {
 
 function protectCallback( unsafeCallback ) {
     return function() {
-        console.log( Date() );
+        console.log( "call: ", unsafeCallback.name, ", when: ", Date() );
         if( port.isOpen ) unsafeCallback();
-        else console.log( "unsuccesful call: ", unsafeCallback.name, ", port closed" );
+        else console.log( "was unsuccesful, beacause port closed" );
         console.log();
     };
 }
@@ -120,12 +139,13 @@ async function portSafeRepeater( unsafeCB, milliseconds ) {
 function processStatesUpdater() {
     for( const process of config.processes ) {
         if( !process.isAvailable ) continue;
-        // if( shouldProcessBeActive( process ) === shouldProcessBeActive(process) ) continue;
-        updateProcessState( process );
+        if( !processesStates[ process.long ] === shouldProcessBeActive( process ) ) continue;
+        processesStates[ process.long ] = shouldProcessBeActive( process );
+        updateProcessStateOnFarm( process );
         sendToWSServer( {
             class: "event",
             process: process.long,
-            isActive: shouldProcessBeActive(process)
+            isActive: processesStates[ process.long ]
         } );
     }
 }
@@ -143,7 +163,7 @@ function beforeAuthHandler( input ) {
     if( data.class !== "loginAsFarm" || data.report.isError ) return;
     sendToWSServer( {
         class: "activitySyncPackage",
-        package: createProcessesStatesPackage( config.processes )
+        package: processesStates
     } );
     sendToWSServer( {
         class: "configPackage",
@@ -177,7 +197,7 @@ function afterAuthHandler( input ) {
                 case "activitySyncPackage":
                     sendToWSServer( {
                         class: "activitySyncPackage",
-                        package: createProcessesStatesPackage( config.processes )
+                        package: processesStates
                     } );
                     break;
                 case "configPackage":
@@ -212,34 +232,52 @@ connection.addListener( "open", () => {
         name
     } );
     portSafeRepeater( processStatesUpdater, 5000 );
-    // portSafeRepeater( connectedSensorsPollster, 5000/* 900000 */ );
+    // portSafeRepeater( connectedSensorsPollster, 900000 );
 } );
-connection.addListener( "message", beforeAuthHandler );
+
+port.addListener( "open", () => {
+    console.log( "Port opened" );
+} );
+
+readyParser.addListener( "ready", () => {
+    console.log("readyParser got: ready ");
+    port.pipe( readlineParser );
+    isPortSendsReady = true;
+    port.unpipe( readyParser );
+} );
+
 readlineParser.addListener( "data", serialLineHandler );
-connection.addListener( "error", error => {
+
+connection.addListener( "message", beforeAuthHandler );
+
+connection.addListener( "error", wsError => {
     console.log( "WebSocket error: " );
-    console.log(error);
-} );
-
-connection.addListener( "close", ( code, msg ) => {
-    console.log( "WebSocket closed: ", code, msg );
-    if ( msg === "shutdown farm" ) {
-        process.exit( 0 );
-    }
-} );
-
-port.addListener( "close", () => {
-    console.log( "Port closed" );
+    port.close( portError => {
+        if ( portError ) console.log( portError );
+        throw wsError;
+    });
 } );
 
 port.addListener( "error", error => {
     console.log( "Error on port: " );
-    console.log(error);
+    console.log("shutdown date:", new Date());
+    throw error;
+} );
+
+connection.addListener( "close", ( code, msg ) => {
+    console.log( "WebSocket closed: ", code, msg );
+    process.exit( ~~(msg !== "shutdown farm") );
+} );
+
+port.addListener( "close", () => {
+    console.log( "Port closed" );
+    connection.close( 1000, "Port closed");
 } );
 
 function shutdown() {
     console.log("Exiting...\n\nClosing Serial port...");
     port.close(err => {
+        if (err) throw err;
         console.log("Serial port closed.\n\nClosing Websocket connection...");
         connection.close( 1000, "shutdown farm");
         repeaterList.forEach( v => clearInterval( v ) );
