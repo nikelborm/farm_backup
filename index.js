@@ -79,6 +79,7 @@ port.pipe( readyParser );
 
 function updateProcessStateOnFarm( proc ) {
     console.log("updateProcessStateOnFarm send to port:", ( processesStates[ proc.long ] ? "e" : "d" ) + proc.short );
+    console.log('proc: ', proc);
     port.write( ( processesStates[ proc.long ] ? "e" : "d" ) + proc.short);
     console.log("updateProcessStateOnFarm finished");
 }
