@@ -153,7 +153,7 @@ function serialLineHandler( line ) {
 function protectCallback( unsafeCallback ) {
     return function() {
         console.log( "call: ", unsafeCallback.name, ", when: ", Date() );
-        if( port.isOpen ) unsafeCallback();
+        if( port.isOpen ) unsafeCallback( arguments );
         else console.log( "was unsuccesful, beacause port closed" );
         console.log();
     };
@@ -181,9 +181,9 @@ async function portSafeRepeater( unsafeCB, milliseconds ) {
 function processStatesUpdater() {
     for( const proc of config.processes ) {
         if( !proc.isAvailable ) continue;
+        updateProcessStateOnFarm( proc );
         if( processesStates[ proc.long ] === shouldProcessBeActive( proc ) ) continue;
         processesStates[ proc.long ] = shouldProcessBeActive( proc );
-        updateProcessStateOnFarm( proc );
         sendToWSServer( {
             class: "event",
             process: proc.long,
@@ -214,9 +214,7 @@ function beforeAuthHandler( input ) {
     } );
     for( const process of config.processes ) {
         if( !process.isAvailable ) continue;
-        protectCallback( () => {
-            updateProcessStateOnFarm( process )
-        } );
+        protectCallback( updateProcessStateOnFarm )( process )
     }
     connection.removeListener( "message", beforeAuthHandler );
     connection.addListener( "message", afterAuthHandler );
