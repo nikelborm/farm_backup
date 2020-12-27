@@ -161,7 +161,7 @@ function beforeAuthHandler( input ) {
     console.log("beforeAuthHandler started");
     const data = prepare( input );
     if( data.class !== "loginAsFarm" || data.report.isError ) return;
-    processesStates = createProcessesStatesPackage();
+    processesStates = createProcessesStatesPackage( config.processes );
     sendToWSServer( {
         class: "activitySyncPackage",
         package: processesStates
