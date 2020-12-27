@@ -154,7 +154,7 @@ function serialLineHandler( line ) {
 function protectCallback( unsafeCallback ) {
     return function() {
         console.log( "call: ", unsafeCallback.name, ", when: ", Date() );
-        if( port.isOpen ) unsafeCallback( arguments );
+        if( port.isOpen ) unsafeCallback( ...arguments );
         else console.log( "was unsuccesful, beacause port closed" );
         console.log();
     };
