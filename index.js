@@ -78,7 +78,7 @@ const repeaterList = [];
 port.pipe( readyParser );
 
 function waitforReady() {
-    const deadLine = Date.now() + 10000;
+    const deadLine = Date.now() + 60000;
     while ( Date.now() < deadLine )
         if ( isPortSendsReady ) return;
     shutdown();
@@ -172,7 +172,7 @@ function beforeAuthHandler( input ) {
     } );
     for( const process of config.processes ) {
         if( !process.isAvailable ) continue;
-        updateProcessStateOnFarm( process );
+        protectCallback(updateProcessStateOnFarm)( process );
     }
     connection.removeListener( "message", beforeAuthHandler );
     connection.addListener( "message", afterAuthHandler );
