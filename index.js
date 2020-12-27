@@ -77,18 +77,48 @@ const readyParser = new Ready({ delimiter: "ready" });
 const repeaterList = [];
 port.pipe( readyParser );
 
-function waitforReady() {
-    const deadLine = Date.now() + 60000;
-    while ( Date.now() < deadLine )
-        if ( isPortSendsReady ) return;
-    shutdown();
-}
-
 function updateProcessStateOnFarm( process ) {
     console.log("updateProcessStateOnFarm send to port:", ( processesStates[ process.long ] ? "e" : "d" ) + process.short );
     port.write( ( processesStates[ process.long ] ? "e" : "d" ) + process.short);
     console.log("updateProcessStateOnFarm finished");
 }
+
+// class Controller {
+//     constructor( timeout ) {
+//         this.timeout = timeout || 5000;
+//         this.queue = [];
+//         this.ready = true;
+//     }
+//     send = function ( cmd, callback ) {
+//         sendCmdToLed( cmd );
+//         if (callback)
+//             callback();
+//             // or simply `sendCmdToLed(cmd, callback)` if sendCmdToLed is async
+//     };
+//     exec = function ( ...args ) {
+//         this.queue.push( args );
+//         this.process();
+//     };
+//     process = function () {
+//         if (this.queue.length === 0)
+//             return;
+//         if (!this.ready)
+//             return;
+//         var self = this;
+//         this.ready = false;
+//         this.send.apply(this, this.queue.shift());
+//         setTimeout(function () {
+//             self.ready = true;
+//             self.process();
+//         }, this.timeout);
+//     };
+// }
+// Led.exec(cmd, function() {
+//     console.log('Command sent');
+// });
+
+// const processesController = new Controller();
+// const sensorsController = new Controller();
 
 function requestSensorValue( sensor ) {
     console.log("requestSensorValue: ", "g" + sensor.short );
@@ -131,7 +161,13 @@ function protectCallback( unsafeCallback ) {
 
 async function portSafeRepeater( unsafeCB, milliseconds ) {
     const safeCallback = protectCallback( unsafeCB );
-    waitforReady();
+    await( new Promise(function(resolve, reject) {
+        setTimeout(()=> {
+            reject();
+        }, 60000 );
+        while ( true ) if ( isPortSendsReady ) resolve();
+    }));
+    shutdown();
     safeCallback();
     repeaterList.push( setInterval( safeCallback, milliseconds ) );
 }
