@@ -78,8 +78,8 @@ const repeaterList = [];
 port.pipe( readyParser );
 
 function updateProcessStateOnFarm( proc ) {
+    if (!proc?.long) console.log('proc: ', proc);
     console.log("updateProcessStateOnFarm send to port:", ( processesStates[ proc.long ] ? "e" : "d" ) + proc.short );
-    console.log('proc: ', proc);
     port.write( ( processesStates[ proc.long ] ? "e" : "d" ) + proc.short);
     console.log("updateProcessStateOnFarm finished");
 }
