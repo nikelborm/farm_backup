@@ -147,18 +147,19 @@ async function portSafeRepeater( unsafeCB, milliseconds, ...args ) {
     const safeCallback = () => protectCallback( unsafeCB )( ...args );
     console.log('safeCallback: ', safeCallback);
     try {
-        await( new Promise( ( resolve, reject ) => {
+        await( new Promise( function ( resolve, reject ) {
             console.log('Promise initialized portSafeRepeater on', unsafeCB.name);
-            setTimeout( () => {
+            const timer = setTimeout( () => {
                 console.log('rejected portSafeRepeater on', unsafeCB.name);
                 reject();
             }, 60000 );
             console.log("TimeOut setted");
-            const asd = setInterval( () => {
+            const interval = setInterval( () => {
                 console.log('setInterval portSafeRepeater on', unsafeCB.name);
                 if ( isPortSendedReady ) {
                     console.log('resolved portSafeRepeater on', unsafeCB.name);
-                    clearInterval( asd );
+                    clearTimeout( timer );
+                    clearInterval( interval );
                     console.log('cleared Interval portSafeRepeater on', unsafeCB.name);
                     resolve();
                 }
@@ -183,10 +184,12 @@ async function portSafeRepeater( unsafeCB, milliseconds, ...args ) {
     console.log("try catch ended");
 }
 
-function processStateUpdater( proc ) {
+function updateProcessState( proc ) {
     console.log('processStateUpdater( proc ): ', proc );
     sendCmdToFarmForSetProcState( proc );
     if( processesStates[ proc.long ] === shouldProcessBeActive( proc ) ) return;
+    console.log('shouldProcessBeActive( proc ): ', shouldProcessBeActive( proc ));
+    console.log('processesStates[ proc.long ]: ', processesStates[ proc.long ]);
     processesStates[ proc.long ] = shouldProcessBeActive( proc );
     sendToWSServer( {
         class: "event",
@@ -195,12 +198,7 @@ function processStateUpdater( proc ) {
     } );
 }
 
-function waitForAuthHandler( input ) {
-    console.log( "waitForAuthHandler started" );
-    const data = prepare( input );
-    console.log('data: ', data);
-    if( data.class !== "loginAsFarm" || data.report.isError ) return;
-    console.log("if not returned");
+function onSuccessAuth() {
     processesStates = createProcessesStatesPackage( getConfig().processes );
     console.log('processesStates: ', processesStates);
     sendToWSServer( {
@@ -214,14 +212,29 @@ function waitForAuthHandler( input ) {
     console.log("for started");
     for( const proc of getConfig().processes ) {
         console.log('proc: ', proc);
-        console.log('proc.isAvailable: ', proc.isAvailable);
         if( !proc.isAvailable ) continue;
-        console.log("started protectCallback( sendCmdToFarmForSetProcState )( proc )");
-        protectCallback( sendCmdToFarmForSetProcState )( proc );
-        console.log("finished protectCallback( sendCmdToFarmForSetProcState )( proc )");
+        console.log("started portSafeRepeater( processStateUpdater, 5000, proc );");
+        portSafeRepeater( updateProcessState, 5000, proc );
+        console.log("finished portSafeRepeater( processStateUpdater, 5000, proc );");
+    }
+    for( const sensor of getConfig().sensors ) {
+        console.log('sensor: ', sensor);
+        if( !sensor.isConnected ) continue;
+        console.log("started portSafeRepeater( requestSensorValue, 900000, sensor );");
+        portSafeRepeater( requestSensorValue, 900000, sensor );
+        console.log("finished portSafeRepeater( requestSensorValue, 900000, sensor );");
     }
     connection.removeListener( "message", waitForAuthHandler );
     connection.addListener( "message", afterAuthHandler );
+}
+
+function waitForAuthHandler( input ) {
+    console.log( "waitForAuthHandler started" );
+    const data = prepare( input );
+    console.log('data: ', data);
+    if( data.class !== "loginAsFarm" || data.report.isError ) return;
+    console.log("if not returned");
+    onSuccessAuth();
     console.log( "waitForAuthHandler finished" );
 }
 
@@ -288,20 +301,6 @@ connection.addListener( "open", () => {
         secret,
         name
     } );
-    for( const proc of getConfig().processes ) {
-        console.log('proc: ', proc);
-        if( !proc.isAvailable ) continue;
-        console.log("started portSafeRepeater( processStateUpdater, 5000, proc );");
-        portSafeRepeater( processStateUpdater, 5000, proc );
-        console.log("finished portSafeRepeater( processStateUpdater, 5000, proc );");
-    }
-    for( const sensor of getConfig().sensors ) {
-        console.log('sensor: ', sensor);
-        if( !sensor.isConnected ) continue;
-        console.log("started portSafeRepeater( requestSensorValue, 900000, sensor );");
-        portSafeRepeater( requestSensorValue, 900000, sensor );
-        console.log("finished portSafeRepeater( requestSensorValue, 900000, sensor );");
-    }
 } );
 
 port.addListener( "open", () => {
