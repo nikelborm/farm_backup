@@ -161,15 +161,21 @@ function protectCallback( unsafeCallback ) {
 
 async function portSafeRepeater( unsafeCB, milliseconds ) {
     const safeCallback = protectCallback( unsafeCB );
-    await( new Promise(function(resolve, reject) {
-        setTimeout(()=> {
-            reject();
-        }, 60000 );
-        while ( true ) if ( isPortSendsReady ) resolve();
-    }));
-    shutdown();
-    safeCallback();
-    repeaterList.push( setInterval( safeCallback, milliseconds ) );
+    try {
+        await( new Promise( (resolve, reject) => {
+            setTimeout( () => {
+                reject();
+            }, 60000 );
+            setInterval( () => {
+                if ( isPortSendsReady ) resolve();
+            }, 3000 );
+        }));
+        safeCallback();
+        repeaterList.push( setInterval( safeCallback, milliseconds ) );
+    } catch (error) {
+        console.log('error: ', error);
+        shutdown();
+    }
 }
 
 function processStatesUpdater() {
