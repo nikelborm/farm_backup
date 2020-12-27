@@ -38,13 +38,13 @@ const { createProcessesStatesPackage } = require("./tools/createProcessesStatesP
 // TODO: Вообще конфиг должен по факту с сервера прилетать, но это типа такая локальная базовая копия конфига
 let { config } = require("./config");
 let isPortSendsReady = false;
-const processesStates = Object.fromEntries(
+let processesStates = Object.fromEntries(
     config.processes.map(
         proc => [ proc.long, false ]
     )
 );
 
-let procArgs = minimist( process.argv.slice(2), {
+const procArgs = minimist( process.argv.slice(2), {
     default: {
         serialAdress: "/dev/ttyUSB0",
         secret: "?Hji6|48H*AOnID%YK1r@WDgRYTFIyzTkThx6UApx|8?*Lr6y}oeST}6%$8~g%ia",
