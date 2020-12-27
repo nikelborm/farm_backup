@@ -78,19 +78,19 @@ const repeaterList = [];
 port.pipe( readyParser );
 
 function waitforReady() {
-    const deadLine = Date.now() + 20000;
+    const deadLine = Date.now() + 10000;
     while ( Date.now() < deadLine )
         if ( isPortSendsReady ) return;
     shutdown();
 }
 
-async function updateProcessStateOnFarm( process ) {
+function updateProcessStateOnFarm( process ) {
     console.log("updateProcessStateOnFarm send to port:", ( processesStates[ process.long ] ? "e" : "d" ) + process.short );
     port.write( ( processesStates[ process.long ] ? "e" : "d" ) + process.short);
     console.log("updateProcessStateOnFarm finished");
 }
 
-async function requestSensorValue( sensor ) {
+function requestSensorValue( sensor ) {
     console.log("requestSensorValue: ", "g" + sensor.short );
     port.write( "g" + sensor.short );
     console.log("requestSensorValue finished");
@@ -139,7 +139,7 @@ async function portSafeRepeater( unsafeCB, milliseconds ) {
 function processStatesUpdater() {
     for( const process of config.processes ) {
         if( !process.isAvailable ) continue;
-        if( !processesStates[ process.long ] === shouldProcessBeActive( process ) ) continue;
+        if( processesStates[ process.long ] === shouldProcessBeActive( process ) ) continue;
         processesStates[ process.long ] = shouldProcessBeActive( process );
         updateProcessStateOnFarm( process );
         sendToWSServer( {
@@ -161,6 +161,7 @@ function beforeAuthHandler( input ) {
     console.log("beforeAuthHandler started");
     const data = prepare( input );
     if( data.class !== "loginAsFarm" || data.report.isError ) return;
+    processesStates = createProcessesStatesPackage();
     sendToWSServer( {
         class: "activitySyncPackage",
         package: processesStates
@@ -169,6 +170,10 @@ function beforeAuthHandler( input ) {
         class: "configPackage",
         package: config
     } );
+    for( const process of config.processes ) {
+        if( !process.isAvailable ) continue;
+        updateProcessStateOnFarm( process );
+    }
     connection.removeListener( "message", beforeAuthHandler );
     connection.addListener( "message", afterAuthHandler );
     console.log("beforeAuthHandler finished");
