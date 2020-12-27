@@ -77,9 +77,9 @@ const readyParser = new Ready({ delimiter: "ready" });
 const repeaterList = [];
 port.pipe( readyParser );
 
-function updateProcessStateOnFarm( process ) {
-    console.log("updateProcessStateOnFarm send to port:", ( processesStates[ process.long ] ? "e" : "d" ) + process.short );
-    port.write( ( processesStates[ process.long ] ? "e" : "d" ) + process.short);
+function updateProcessStateOnFarm( proc ) {
+    console.log("updateProcessStateOnFarm send to port:", ( processesStates[ proc.long ] ? "e" : "d" ) + proc.short );
+    port.write( ( processesStates[ proc.long ] ? "e" : "d" ) + proc.short);
     console.log("updateProcessStateOnFarm finished");
 }
 
@@ -179,15 +179,17 @@ async function portSafeRepeater( unsafeCB, milliseconds ) {
 }
 
 function processStatesUpdater() {
-    for( const process of config.processes ) {
-        if( !process.isAvailable ) continue;
-        if( processesStates[ process.long ] === shouldProcessBeActive( process ) ) continue;
-        processesStates[ process.long ] = shouldProcessBeActive( process );
-        updateProcessStateOnFarm( process );
+    console.log('config.processes: ', config.processes);
+    for( const proc of config.processes ) {
+        console.log('proc: ', proc);
+        if( !proc.isAvailable ) continue;
+        if( processesStates[ proc.long ] === shouldProcessBeActive( proc ) ) continue;
+        processesStates[ proc.long ] = shouldProcessBeActive( proc );
+        updateProcessStateOnFarm( proc );
         sendToWSServer( {
             class: "event",
-            process: process.long,
-            isActive: processesStates[ process.long ]
+            process: proc.long,
+            isActive: processesStates[ proc.long ]
         } );
     }
 }
