@@ -12,14 +12,6 @@ const procArgs = require("minimist")( process.argv.slice(2), {
         n: "name"
     }
 });
-function setConfig( callback ) {
-    // TODO: Добавить также сюда работу с серверным конфигом, подгрузкой и обновлением его
-    // TODO: Добавить работу с файловой системой и сохранением конфига в json файл
-    config = callback( config );
-}
-function getConfig() {
-    return config;
-}
 exports.portName = process.env.SERIAL_PORT_ADRESS || procArgs.serialAdress;
 exports.WSSUrl   = process.env.WSS_URL            || procArgs.WSSUrl;
 exports.secret   = process.env.FARM_SECRET        || procArgs.secret;
@@ -162,6 +154,14 @@ let config = {
         }
     ]
 };
+function setConfig( callback ) {
+    // TODO: Добавить также сюда работу с серверным конфигом, подгрузкой и обновлением его
+    // TODO: Добавить работу с файловой системой и сохранением конфига в json файл
+    config = callback( config );
+}
+function getConfig() {
+    return config;
+}
 
 exports.config = config;
 exports.setConfig = setConfig;
