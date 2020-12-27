@@ -266,7 +266,10 @@ port.addListener( "error", error => {
 
 connection.addListener( "close", ( code, msg ) => {
     console.log( "WebSocket closed: ", code, msg );
-    process.exit( ~~(msg !== "shutdown farm") );
+    port.close( portError => {
+        if ( portError ) throw portError;
+        process.exit( ~~(msg !== "shutdown farm") );
+    });
 } );
 
 port.addListener( "close", () => {
