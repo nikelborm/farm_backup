@@ -179,9 +179,7 @@ async function portSafeRepeater( unsafeCB, milliseconds ) {
 }
 
 function processStatesUpdater() {
-    console.log('config.processes: ', config.processes);
     for( const proc of config.processes ) {
-        console.log('proc: ', proc);
         if( !proc.isAvailable ) continue;
         if( processesStates[ proc.long ] === shouldProcessBeActive( proc ) ) continue;
         processesStates[ proc.long ] = shouldProcessBeActive( proc );
@@ -216,7 +214,9 @@ function beforeAuthHandler( input ) {
     } );
     for( const process of config.processes ) {
         if( !process.isAvailable ) continue;
-        protectCallback(updateProcessStateOnFarm)( process );
+        protectCallback( () => {
+            updateProcessStateOnFarm( process )
+        } );
     }
     connection.removeListener( "message", beforeAuthHandler );
     connection.addListener( "message", afterAuthHandler );
