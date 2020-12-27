@@ -43,7 +43,7 @@ let processesStates = Object.fromEntries(
         proc => [ proc.long, false ]
     )
 );
-
+console.log('processesStates: ', processesStates);
 const procArgs = minimist( process.argv.slice(2), {
     default: {
         serialAdress: "/dev/ttyUSB0",
