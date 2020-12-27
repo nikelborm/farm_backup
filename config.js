@@ -1,3 +1,30 @@
+const procArgs = require("minimist")( process.argv.slice(2), {
+    default: {
+        serialAdress: "/dev/ttyUSB0",
+        secret: "?Hji6|48H*AOnID%YK1r@WDgRYTFIyzTkThx6UApx|8?*Lr6y}oeST}6%$8~g%ia",
+        WSSUrl: "wss://rapidfarm2team.herokuapp.com/",
+        name: "Silver Farm"
+    },
+    alias: {
+        a: "serialAdress",
+        u: "WSSUrl",
+        s: "secret",
+        n: "name"
+    }
+});
+function setConfig( callback ) {
+    // TODO: Добавить также сюда работу с серверным конфигом, подгрузкой и обновлением его
+    // TODO: Добавить работу с файловой системой и сохранением конфига в json файл
+    config = callback( config );
+}
+function getConfig() {
+    return config;
+}
+exports.portName = process.env.SERIAL_PORT_ADRESS || procArgs.serialAdress;
+exports.WSSUrl   = process.env.WSS_URL            || procArgs.WSSUrl;
+exports.secret   = process.env.FARM_SECRET        || procArgs.secret;
+exports.name     = process.env.NAME               || procArgs.name;
+
 let config = {
     processes: [
         {
@@ -135,4 +162,7 @@ let config = {
         }
     ]
 };
+
 exports.config = config;
+exports.setConfig = setConfig;
+exports.getConfig = getConfig;
