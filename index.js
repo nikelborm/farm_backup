@@ -167,7 +167,8 @@ async function portSafeRepeater( unsafeCB, milliseconds ) {
             setTimeout( () => {
                 reject();
             }, 60000 );
-            setInterval( () => {
+            const asd = setInterval( () => {
+                clearInterval(asd);
                 if ( isPortSendsReady ) resolve();
             }, 3000 );
         }));
