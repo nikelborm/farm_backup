@@ -43,21 +43,6 @@ const {
     secret,
     name
 } = require("./config");
-console.log(`{
-    getConfig,
-    setConfig,
-    portName,
-    WSSUrl,
-    secret,
-    name
-}: `, {
-    getConfig,
-    setConfig,
-    portName,
-    WSSUrl,
-    secret,
-    name
-});
 
 let isPortSendedReady = false;
 let processesStates = Object.fromEntries(
@@ -65,7 +50,6 @@ let processesStates = Object.fromEntries(
         proc => [ proc.long, false ]
     )
 );
-console.log('processesStates: ', processesStates);
 
 const connection = new WebSocket( WSSUrl );
 const port = new SerialPort(portName, {
