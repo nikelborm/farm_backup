@@ -65,8 +65,8 @@ const repeaterList = [];
 port.pipe( readyParser );
 
 function sendCmdToFarmForSetProcState( proc ) {
-    console.log("proc: ", proc);
     console.log( "sendCmdToFarmForSetProcState send to port:", ( processesStates[ proc.long ] ? "e" : "d" ) + proc.short );
+    console.log("proc: ", proc);
     if (!proc?.long) console.log("proc: ", proc);
     port.write( ( processesStates[ proc.long ] ? "e" : "d" ) + proc.short );
     console.log( "sendCmdToFarmForSetProcState finished" );
@@ -83,8 +83,6 @@ function requestSensorValue( sensor ) {
 
 function sendToWSServer( data ) {
     console.log( "sendToWSServer: ", data );
-    console.log('connection.OPEN: ', connection.OPEN);
-    console.log('connection.readyState: ', connection.readyState);
     if ( connection.readyState === connection.OPEN ) connection.send( JSON.stringify( data ) );
     else console.log( "connection.readyState: ", connection.readyState );
     console.log( "sendToWSServer finished" );
@@ -169,7 +167,7 @@ async function portSafeRepeater( unsafeCB, milliseconds, ...args ) {
 }
 
 function updateProcessState( proc ) {
-    console.log('processStateUpdater( proc ): ', proc );
+    console.log('updateProcessState started ');
     sendCmdToFarmForSetProcState( proc );
     if( processesStates[ proc.long ] === shouldProcessBeActive( proc ) ) return;
     console.log('shouldProcessBeActive( proc ): ', shouldProcessBeActive( proc ));
@@ -180,11 +178,12 @@ function updateProcessState( proc ) {
         process: proc.long,
         isActive: processesStates[ proc.long ]
     } );
+    console.log('updateProcessState finished ');
 }
 
 function onSuccessAuth() {
+    console.log('onSuccessAuth started ');
     processesStates = createProcessesStatesPackage( getConfig().processes );
-    console.log('processesStates: ', processesStates);
     sendToWSServer( {
         class: "activitySyncPackage",
         package: processesStates
@@ -193,23 +192,17 @@ function onSuccessAuth() {
         class: "configPackage",
         package: getConfig()
     } );
-    console.log("for started");
     for( const proc of getConfig().processes ) {
-        console.log('proc: ', proc);
         if( !proc.isAvailable ) continue;
-        console.log("started portSafeRepeater( processStateUpdater, 5000, proc );");
         portSafeRepeater( updateProcessState, 5000, proc );
-        console.log("finished portSafeRepeater( processStateUpdater, 5000, proc );");
     }
     for( const sensor of getConfig().sensors ) {
-        console.log('sensor: ', sensor);
         if( !sensor.isConnected ) continue;
-        console.log("started portSafeRepeater( requestSensorValue, 900000, sensor );");
         portSafeRepeater( requestSensorValue, 900000, sensor );
-        console.log("finished portSafeRepeater( requestSensorValue, 900000, sensor );");
     }
     connection.removeListener( "message", waitForAuthHandler );
     connection.addListener( "message", afterAuthHandler );
+    console.log('onSuccessAuth finished ');
 }
 
 function waitForAuthHandler( input ) {
