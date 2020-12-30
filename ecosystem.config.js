@@ -3,7 +3,7 @@ module.exports = {
     name: 'farm',
     script: 'index.js',
     watch: '.',
-    ignore_watch: ["node_modules"]
+    ignore_watch: ["node_modules", ".git"]
   }],
 
   deploy : {
