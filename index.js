@@ -15,15 +15,15 @@
         // stopBits: 1,
         // xoff:true // flowControl: false
     // }
-    // const { exec } = require("child_process");
+const { exec } = require("child_process");
 
-    // exec( "cat /sys/class/thermal/thermal_zone0/temp", ( error, stdout, stderr ) => {
-    //     if( error ) {
-    //         console.log( `error: ${ error.message }` );
-    //         return;
-    //     }
-    //     console.log( parseInt( stdout.split( "\n" )[ 0 ], 10 ) / 1000 );
-    // } );
+exec( "cd /home/ubuntu/farm && git pull", ( error, stdout, stderr ) => {
+  if( error ) {
+    console.log( `error: ${ error.message }` );
+    return;
+  }
+
+} );
 
 const SerialPort = require("serialport");
 const Readline = require("@serialport/parser-readline");
